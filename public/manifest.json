@@ -1,7 +1,7 @@
 {
-  "name": "Flip Seven Score",
-  "short_name": "Flip Seven",
-  "description": "Compteur de scores pour le jeu Flip Seven",
+  "name": "Loki Seven Score",
+  "short_name": "Loki Seven",
+  "description": "Compteur de scores pour le jeu Loki Seven",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#F5EEFF",
