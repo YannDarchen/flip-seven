@@ -1,12 +1,14 @@
 import { useState } from 'react'
 import { PLAYER_COLORS, WIN_SCORE } from '../constants'
 
-export default function Game({ players, rounds, onSubmitRound, onBack }) {
+export default function Game({ players, rounds, onSubmitRound, onEditLastRound, onRemovePlayer, onBack }) {
   const [tab, setTab] = useState('scores')
   const [inputs, setInputs] = useState({})
+  const [isEditing, setIsEditing] = useState(false)
+  const [confirmRemoveId, setConfirmRemoveId] = useState(null)
   const [showBackConfirm, setShowBackConfirm] = useState(false)
 
-  const roundNumber = rounds.length + 1
+  const roundNumber = isEditing ? rounds.length : rounds.length + 1
 
   const totals = players.map((p) => ({
     ...p,
@@ -18,6 +20,7 @@ export default function Game({ players, rounds, onSubmitRound, onBack }) {
   }))
 
   const sorted = [...totals].sort((a, b) => b.total - a.total)
+  const maxTotal = sorted.length > 0 ? sorted[0].total : 0
 
   const handleInput = (playerId, value) => {
     setInputs((prev) => ({ ...prev, [playerId]: value }))
@@ -32,7 +35,37 @@ export default function Game({ players, rounds, onSubmitRound, onBack }) {
       score: parseInt(inputs[p.id], 10) || 0,
     }))
     setInputs({})
-    onSubmitRound(roundScores)
+    if (isEditing) {
+      setIsEditing(false)
+      onEditLastRound(roundScores)
+    } else {
+      onSubmitRound(roundScores)
+    }
+  }
+
+  const startEditing = () => {
+    const lastRound = rounds[rounds.length - 1]
+    const prefilled = {}
+    players.forEach((p) => {
+      const entry = lastRound.find((r) => r.playerId === p.id)
+      prefilled[p.id] = entry ? String(entry.score) : '0'
+    })
+    setInputs(prefilled)
+    setIsEditing(true)
+    setTab('scores')
+  }
+
+  const cancelEditing = () => {
+    setInputs({})
+    setIsEditing(false)
+  }
+
+  const handleRemove = (playerId) => {
+    setConfirmRemoveId(null)
+    const updated = { ...inputs }
+    delete updated[playerId]
+    setInputs(updated)
+    onRemovePlayer(playerId)
   }
 
   const getRankIcon = (rank) => {
@@ -49,8 +82,12 @@ export default function Game({ players, rounds, onSubmitRound, onBack }) {
       <div style={{ padding: '20px 20px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <button onClick={() => setShowBackConfirm(true)} style={iconBtn}>←</button>
         <div style={{ textAlign: 'center' }}>
-          <p style={{ margin: 0, fontSize: '13px', fontWeight: 700, color: '#9D77CC', fontFamily: 'Nunito, sans-serif', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Manche</p>
-          <p style={{ margin: 0, fontSize: '28px', fontWeight: 900, color: '#5B21B6', fontFamily: 'Nunito, sans-serif' }}>{roundNumber}</p>
+          <p style={{ margin: 0, fontSize: '13px', fontWeight: 700, color: '#9D77CC', fontFamily: 'Nunito, sans-serif', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+            {isEditing ? 'Modification' : 'Manche'}
+          </p>
+          <p style={{ margin: 0, fontSize: '28px', fontWeight: 900, color: isEditing ? '#EA580C' : '#5B21B6', fontFamily: 'Nunito, sans-serif' }}>
+            {roundNumber}
+          </p>
         </div>
         <div style={{ width: '40px' }} />
       </div>
@@ -60,19 +97,19 @@ export default function Game({ players, rounds, onSubmitRound, onBack }) {
         <div style={{ height: '8px', backgroundColor: '#E8D5FF', borderRadius: '8px', overflow: 'hidden' }}>
           <div style={{
             height: '100%', backgroundColor: '#7C3AED', borderRadius: '8px',
-            width: `${Math.min((Math.max(...sorted.map(p => p.total)) / WIN_SCORE) * 100, 100)}%`,
+            width: `${Math.min((maxTotal / WIN_SCORE) * 100, 100)}%`,
             transition: 'width 0.5s ease',
           }} />
         </div>
         <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#9D77CC', fontFamily: 'Nunito, sans-serif', fontWeight: 600, textAlign: 'right' }}>
-          {Math.max(...sorted.map(p => p.total))} / {WIN_SCORE} pts
+          {maxTotal} / {WIN_SCORE} pts
         </p>
       </div>
 
       {/* Tabs */}
       <div style={{ display: 'flex', margin: '16px 20px 0', backgroundColor: '#E8D5FF', borderRadius: '12px', padding: '4px', gap: '4px' }}>
         {[['scores', '📝 Saisie'], ['leaderboard', '🏅 Classement']].map(([key, label]) => (
-          <button key={key} onClick={() => setTab(key)} style={{
+          <button key={key} onClick={() => { setTab(key); if (key !== 'scores') cancelEditing() }} style={{
             flex: 1, padding: '10px', borderRadius: '10px', border: 'none',
             backgroundColor: tab === key ? '#7C3AED' : 'transparent',
             color: tab === key ? '#fff' : '#9D77CC',
@@ -89,46 +126,81 @@ export default function Game({ players, rounds, onSubmitRound, onBack }) {
         {/* Tab Saisie */}
         {tab === 'scores' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+
+            {/* Bandeau modification */}
+            {isEditing && (
+              <div style={{ backgroundColor: '#FFF0E8', border: '2px solid #FCA171', borderRadius: '12px', padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: '14px', fontWeight: 700, color: '#EA580C', fontFamily: 'Nunito, sans-serif' }}>
+                  ✏️ Modification de la manche {roundNumber}
+                </span>
+                <button onClick={cancelEditing} style={{ background: 'none', border: 'none', color: '#EA580C', fontSize: '20px', cursor: 'pointer', fontWeight: 800, padding: '0 4px' }}>×</button>
+              </div>
+            )}
+
             {players.map((p) => {
               const color = PLAYER_COLORS[p.colorIndex]
               const playerTotal = totals.find((t) => t.id === p.id)?.total ?? 0
+              const isConfirmingRemove = confirmRemoveId === p.id
+
               return (
                 <div key={p.id} style={{
-                  backgroundColor: color.light, border: `2px solid ${color.border}`,
+                  backgroundColor: color.light, border: `2px solid ${isConfirmingRemove ? '#FCA5A5' : color.border}`,
                   borderRadius: '16px', padding: '14px 16px',
-                  display: 'flex', alignItems: 'center', gap: '12px',
+                  transition: 'border-color 0.2s',
                 }}>
-                  <div style={{ flex: 1 }}>
-                    <p style={{ margin: 0, fontSize: '17px', fontWeight: 800, color: color.text, fontFamily: 'Nunito, sans-serif' }}>{p.name}</p>
-                    <p style={{ margin: 0, fontSize: '13px', color: color.text, opacity: 0.7, fontFamily: 'Nunito, sans-serif', fontWeight: 600 }}>Total : {playerTotal} pts</p>
-                  </div>
-                  <input
-                    type="number"
-                    inputMode="numeric"
-                    value={inputs[p.id] ?? ''}
-                    onChange={(e) => handleInput(p.id, e.target.value)}
-                    placeholder="0"
-                    style={{
-                      width: '80px', padding: '10px 12px', textAlign: 'center',
-                      borderRadius: '12px', border: `2px solid ${color.border}`,
-                      fontSize: '20px', fontWeight: 900, fontFamily: 'Nunito, sans-serif',
-                      color: color.text, backgroundColor: '#fff', outline: 'none',
-                    }}
-                  />
+                  {!isConfirmingRemove ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <div style={{ flex: 1 }}>
+                        <p style={{ margin: 0, fontSize: '17px', fontWeight: 800, color: color.text, fontFamily: 'Nunito, sans-serif' }}>{p.name}</p>
+                        <p style={{ margin: 0, fontSize: '13px', color: color.text, opacity: 0.7, fontFamily: 'Nunito, sans-serif', fontWeight: 600 }}>Total : {playerTotal} pts</p>
+                      </div>
+                      <input
+                        type="number"
+                        inputMode="numeric"
+                        value={inputs[p.id] ?? ''}
+                        onChange={(e) => handleInput(p.id, e.target.value)}
+                        placeholder="0"
+                        style={{
+                          width: '80px', padding: '10px 12px', textAlign: 'center',
+                          borderRadius: '12px', border: `2px solid ${color.border}`,
+                          fontSize: '20px', fontWeight: 900, fontFamily: 'Nunito, sans-serif',
+                          color: color.text, backgroundColor: '#fff', outline: 'none',
+                        }}
+                      />
+                      {players.length > 2 && (
+                        <button onClick={() => setConfirmRemoveId(p.id)} style={{
+                          background: 'none', border: 'none', fontSize: '18px', cursor: 'pointer',
+                          padding: '4px', color: color.text, opacity: 0.4, lineHeight: 1,
+                        }} title="Retirer ce joueur">
+                          ✕
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <div>
+                      <p style={{ margin: '0 0 10px', fontSize: '15px', fontWeight: 800, color: '#EF4444', fontFamily: 'Nunito, sans-serif' }}>
+                        Retirer {p.name} de la partie ?
+                      </p>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <button onClick={() => setConfirmRemoveId(null)} style={cancelBtn}>Annuler</button>
+                        <button onClick={() => handleRemove(p.id)} style={confirmBtn}>Retirer</button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )
             })}
 
             <button onClick={handleSubmit} disabled={!allFilled} style={{
               marginTop: '8px',
-              backgroundColor: allFilled ? '#7C3AED' : '#E8D5FF',
+              backgroundColor: allFilled ? (isEditing ? '#EA580C' : '#7C3AED') : '#E8D5FF',
               color: allFilled ? '#fff' : '#C4B5FD',
               border: 'none', borderRadius: '16px', padding: '18px',
               fontSize: '18px', fontWeight: 800, fontFamily: 'Nunito, sans-serif',
               cursor: allFilled ? 'pointer' : 'default',
-              boxShadow: allFilled ? '0 4px 16px rgba(124, 58, 237, 0.3)' : 'none',
+              boxShadow: allFilled ? `0 4px 16px ${isEditing ? 'rgba(234,88,12,0.3)' : 'rgba(124,58,237,0.3)'}` : 'none',
             }}>
-              Valider la manche
+              {isEditing ? 'Mettre à jour la manche' : 'Valider la manche'}
             </button>
           </div>
         )}
@@ -163,6 +235,17 @@ export default function Game({ players, rounds, onSubmitRound, onBack }) {
                 </div>
               )
             })}
+
+            {/* Bouton modifier dernière manche */}
+            {rounds.length > 0 && (
+              <button onClick={startEditing} style={{
+                marginTop: '4px', backgroundColor: '#FFF0E8', color: '#EA580C',
+                border: '2px solid #FCA171', borderRadius: '14px', padding: '14px',
+                fontSize: '15px', fontWeight: 800, fontFamily: 'Nunito, sans-serif', cursor: 'pointer',
+              }}>
+                ✏️ Modifier la manche {rounds.length}
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -196,4 +279,14 @@ const iconBtn = {
   background: '#fff', border: '2px solid #C4B5FD', borderRadius: '12px',
   width: '40px', height: '40px', fontSize: '18px', cursor: 'pointer',
   display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+}
+const cancelBtn = {
+  padding: '8px 16px', borderRadius: '8px', border: '2px solid #C4B5FD',
+  backgroundColor: '#F5EEFF', color: '#7C3AED', fontSize: '14px',
+  fontWeight: 700, fontFamily: 'Nunito, sans-serif', cursor: 'pointer',
+}
+const confirmBtn = {
+  padding: '8px 16px', borderRadius: '8px', border: 'none',
+  backgroundColor: '#EF4444', color: '#fff', fontSize: '14px',
+  fontWeight: 700, fontFamily: 'Nunito, sans-serif', cursor: 'pointer',
 }

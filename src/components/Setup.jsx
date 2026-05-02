@@ -6,6 +6,7 @@ let nextId = Date.now()
 export default function Setup({ savedPlayers, onStart, onBack }) {
   const [selected, setSelected] = useState([])
   const [newName, setNewName] = useState('')
+  const [duplicateError, setDuplicateError] = useState(false)
 
   const toggleSaved = (player) => {
     if (selected.find((s) => s.id === player.id)) {
@@ -18,9 +19,16 @@ export default function Setup({ savedPlayers, onStart, onBack }) {
   const addNew = () => {
     const name = newName.trim()
     if (!name) return
+    const isDuplicate = selected.some((s) => s.name.toLowerCase() === name.toLowerCase())
+    if (isDuplicate) {
+      setDuplicateError(true)
+      setTimeout(() => setDuplicateError(false), 2000)
+      return
+    }
     const id = `new_${nextId++}`
     setSelected([...selected, { id, name }])
     setNewName('')
+    setDuplicateError(false)
   }
 
   const removeSelected = (id) => setSelected(selected.filter((s) => s.id !== id))
@@ -85,20 +93,27 @@ export default function Setup({ savedPlayers, onStart, onBack }) {
       {/* Ajouter un nouveau joueur */}
       <div style={{ marginBottom: '32px' }}>
         <p style={labelStyle}>Ajouter un joueur</p>
-        <div style={{ display: 'flex', gap: '10px' }}>
+        <div style={{ display: 'flex', gap: '10px', position: 'relative' }}>
           <input
             type="text"
             value={newName}
-            onChange={(e) => setNewName(e.target.value)}
+            onChange={(e) => { setNewName(e.target.value); setDuplicateError(false) }}
             onKeyDown={(e) => e.key === 'Enter' && addNew()}
             placeholder="Prénom..."
             maxLength={20}
             style={{
               flex: 1, padding: '12px 16px', borderRadius: '12px',
-              border: '2px solid #C4B5FD', fontSize: '16px', fontFamily: 'Nunito, sans-serif',
-              fontWeight: 600, outline: 'none', backgroundColor: '#fff', color: '#3D1A78',
+              border: `2px solid ${duplicateError ? '#FCA5A5' : '#C4B5FD'}`,
+              fontSize: '16px', fontFamily: 'Nunito, sans-serif',
+              fontWeight: 600, outline: 'none', backgroundColor: duplicateError ? '#FFF0F0' : '#fff', color: '#3D1A78',
+              transition: 'border-color 0.2s, background-color 0.2s',
             }}
           />
+          {duplicateError && (
+            <p style={{ position: 'absolute', bottom: '-20px', left: 0, margin: 0, fontSize: '12px', color: '#EF4444', fontFamily: 'Nunito, sans-serif', fontWeight: 700 }}>
+              Ce joueur est déjà dans la liste
+            </p>
+          )}
           <button onClick={addNew} disabled={!newName.trim()} style={{
             backgroundColor: newName.trim() ? '#7C3AED' : '#E8D5FF',
             color: newName.trim() ? '#fff' : '#C4B5FD',

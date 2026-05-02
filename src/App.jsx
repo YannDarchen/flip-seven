@@ -120,6 +120,14 @@ export default function App() {
     }
   }
 
+  const removePlayer = (playerId) => {
+    setGamePlayers((prev) => prev.filter((p) => p.id !== playerId))
+  }
+
+  const editLastRound = (newScores) => {
+    setRounds((prev) => [...prev.slice(0, -1), newScores])
+  }
+
   const deleteGame = async (gameId) => {
     setHallOfFame((prev) => prev.filter((g) => g.id !== gameId))
     const { error } = await supabase.from('hall_of_fame').delete().eq('id', gameId)
@@ -145,7 +153,7 @@ export default function App() {
         <Setup savedPlayers={savedPlayers} onStart={startGame} onBack={goHome} />
       )}
       {screen === 'game' && (
-        <Game players={gamePlayers} rounds={rounds} onSubmitRound={submitRound} onBack={goHome} />
+        <Game players={gamePlayers} rounds={rounds} onSubmitRound={submitRound} onEditLastRound={editLastRound} onRemovePlayer={removePlayer} onBack={goHome} />
       )}
       {screen === 'victory' && (
         <Victory
